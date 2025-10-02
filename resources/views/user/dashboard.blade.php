@@ -1,0 +1,135 @@
+<x-app-layout>
+    <x-slot name="header">
+        <div class="bg-gradient-to-r from-indigo-600 to-purple-600 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-8 -mt-6">
+            <div class="max-w-7xl mx-auto">
+                <div class="flex items-center justify-between flex-wrap gap-4">
+                    <div>
+                        <h2 class="font-bold text-3xl text-white leading-tight mb-2">Halo, {{ Auth::user()->name }}! 👋</h2>
+                        <p class="text-indigo-100 text-sm">Selamat datang kembali di Perpustakaan Digital</p>
+                    </div>
+                    <a href="{{ route('books.catalog') }}" class="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-indigo-600 font-semibold rounded-lg hover:bg-indigo-50 transition-all shadow-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        Jelajahi Katalog
+                    </a>
+                </div>
+            </div>
+        </div>
+    </x-slot>
+
+    <div class="py-12">
+        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-8">
+            @if (session('success'))
+                <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded">
+                    {{ session('success') }}
+                </div>
+            @endif
+            @if (session('error'))
+                <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
+                    {{ session('error') }}
+                </div>
+            @endif
+
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <h3 class="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                    <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                    </svg>
+                    Peminjaman Anda
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm text-left text-gray-500">
+                        <thead class="text-xs uppercase bg-gradient-to-r from-gray-50 to-gray-100 text-gray-700 border-b-2 border-indigo-600">
+                            <tr>
+                                <th class="px-4 py-3 font-semibold">Buku</th>
+                                <th class="px-4 py-3 font-semibold">Status</th>
+                                <th class="px-4 py-3 font-semibold">Jatuh Tempo</th>
+                                <th class="px-4 py-3 font-semibold">Kode</th>
+                                <th class="px-4 py-3 font-semibold">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($activeBorrows as $borrow)
+                                <tr class="border-b">
+                                    <td class="px-4 py-3">{{ $borrow->book->title }}</td>
+                                    <td class="px-4 py-3"><x-status-badge :status="$borrow->status" /></td>
+                                    <td class="px-4 py-3">
+                                        {{ optional($borrow->due_date)->translatedFormat('d F Y') ?? 'Menunggu konfirmasi' }}
+                                    </td>
+                                    <td class="px-4 py-3 font-mono text-xs">{{ $borrow->borrow_code ?? '—' }}</td>
+                                    <td class="px-4 py-3">
+                                        @if ($borrow->status === \App\Models\BorrowRequest::STATUS_APPROVED)
+                                            <form action="{{ route('borrow.request-return', $borrow) }}" method="POST">
+                                                @csrf
+                                                <button class="px-3 py-1 text-xs font-semibold text-white bg-indigo-600 rounded hover:bg-indigo-500" type="submit">
+                                                    Konfirmasi Pengembalian
+                                                </button>
+                                            </form>
+                                        @elseif ($borrow->status === \App\Models\BorrowRequest::STATUS_RETURN_REQUESTED)
+                                            <span class="text-xs text-gray-500">Menunggu verifikasi petugas</span>
+                                        @else
+                                            <span class="text-xs text-gray-400">—</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="5" class="px-4 py-3 text-center text-gray-400">Belum ada riwayat peminjaman.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                    <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+                    </svg>
+                    Rekomendasi Buku Untuk Anda
+                </h3>
+                <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    @foreach ($availableBooks as $book)
+                        <div class="bg-white rounded-xl shadow-md hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 overflow-hidden flex flex-col group">
+                            <div class="relative overflow-hidden">
+                                @if ($book->cover_image)
+                                    <img src="{{ asset('storage/' . $book->cover_image) }}" alt="{{ $book->title }}" class="h-48 w-full object-cover group-hover:scale-110 transition-transform duration-500">
+                                @else
+                                    <div class="h-48 bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-indigo-400">
+                                        <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                                        </svg>
+                                    </div>
+                                @endif
+                            </div>
+                            <div class="p-5 flex-1 flex flex-col">
+                                <h4 class="text-lg font-bold text-gray-900 mb-1 group-hover:text-indigo-600 transition-colors">{{ $book->title }}</h4>
+                                <p class="text-sm text-indigo-600 font-medium mb-2">{{ $book->author }}</p>
+                                <p class="text-sm text-gray-600 flex-1">{{ \Illuminate\Support\Str::limit($book->description, 120) }}</p>
+                                <div class="mt-4 flex items-center justify-between text-sm text-gray-500">
+                                    <span>⭐ {{ number_format($book->ratings_avg_rating ?? 0, 1) }} ({{ $book->ratings_count }})</span>
+                                    <span>Stok: {{ $book->stock }}</span>
+                                </div>
+                                <div class="mt-4 flex items-center justify-between gap-2">
+                                    <form action="{{ route('borrow.store') }}" method="POST" class="flex-1">
+                                        @csrf
+                                        <input type="hidden" name="book_id" value="{{ $book->id }}">
+                                        <button type="submit" class="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-all {{ $book->stock > 0 ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:shadow-lg hover:-translate-y-0.5' : 'bg-gray-200 text-gray-500 cursor-not-allowed' }}" {{ $book->stock > 0 ? '' : 'disabled' }}>
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                            </svg>
+                                            Pinjam
+                                        </button>
+                                    </form>
+                                    <a href="{{ route('books.show', $book) }}" class="text-xs text-gray-500 hover:text-gray-700">Detail</a>
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+    </div>
+</x-app-layout>
