@@ -71,33 +71,47 @@ class BorrowRequestController extends Controller
     {
         $this->authorizeAction($borrowRequest);
 
-        $data = $request->validate([
+        // Validasi input
+        $validated = $request->validate([
             'due_date' => ['required', 'date', 'after:today'],
+        ], [
+            'due_date.required' => 'Tanggal pengembalian wajib diisi.',
+            'due_date.date' => 'Format tanggal tidak valid.',
+            'due_date.after' => 'Tanggal pengembalian harus setelah hari ini.',
         ]);
 
+        // Cek status peminjaman
         if ($borrowRequest->status !== BorrowRequest::STATUS_PENDING) {
-            return back()->with('error', 'Permintaan tidak dalam status pending.');
+            return back()->with('error', 'Permintaan tidak dalam status pending. Status saat ini: ' . $borrowRequest->status);
         }
 
-        return DB::transaction(function () use ($borrowRequest, $data, $request) {
+        // Proses approval dalam transaction
+        return DB::transaction(function () use ($borrowRequest, $validated, $request) {
+            // Lock buku untuk update stok
             $book = $borrowRequest->book()->lockForUpdate()->first();
 
+            // Cek stok
             if ($book->stock <= 0) {
-                return back()->with('error', 'Stok buku habis.');
+                return back()->with('error', 'Stok buku "' . $book->title . '" habis. Stok saat ini: ' . $book->stock);
             }
 
+            // Kurangi stok
             $book->decrement('stock');
 
+            // Generate kode peminjaman jika belum ada
+            $borrowCode = $borrowRequest->borrow_code ?? 'BRW-' . strtoupper(Str::random(6));
+
+            // Update status peminjaman
             $borrowRequest->update([
                 'status' => BorrowRequest::STATUS_APPROVED,
-                'due_date' => $data['due_date'],
-                'borrow_code' => $borrowRequest->borrow_code ?? strtoupper(Str::random(8)),
+                'due_date' => $validated['due_date'],
+                'borrow_code' => $borrowCode,
                 'processed_by' => $request->user()->id,
                 'processed_at' => now(),
                 'processed_action' => 'approved',
             ]);
 
-            return back()->with('success', 'Permintaan peminjaman disetujui.');
+            return back()->with('success', 'Peminjaman disetujui! Kode: ' . $borrowCode . ' | Tenggat: ' . date('d M Y', strtotime($validated['due_date'])));
         });
     }
 
@@ -105,10 +119,12 @@ class BorrowRequestController extends Controller
     {
         $this->authorizeAction($borrowRequest);
 
+        // Cek status peminjaman
         if ($borrowRequest->status !== BorrowRequest::STATUS_PENDING) {
-            return back()->with('error', 'Permintaan tidak dalam status pending.');
+            return back()->with('error', 'Permintaan tidak dalam status pending. Status saat ini: ' . $borrowRequest->status);
         }
 
+        // Update status menjadi rejected
         $borrowRequest->update([
             'status' => BorrowRequest::STATUS_REJECTED,
             'processed_by' => $request->user()->id,
@@ -116,7 +132,7 @@ class BorrowRequestController extends Controller
             'processed_action' => 'rejected',
         ]);
 
-        return back()->with('success', 'Permintaan peminjaman ditolak.');
+        return back()->with('success', 'Permintaan peminjaman dari ' . $borrowRequest->user->name . ' untuk buku "' . $borrowRequest->book->title . '" telah ditolak.');
     }
 
     public function requestReturn(BorrowRequest $borrowRequest): RedirectResponse
@@ -140,23 +156,106 @@ class BorrowRequestController extends Controller
     {
         $this->authorizeAction($borrowRequest);
 
+        // Cek status peminjaman
         if (! in_array($borrowRequest->status, [BorrowRequest::STATUS_APPROVED, BorrowRequest::STATUS_RETURN_REQUESTED], true)) {
-            return back()->with('error', 'Status peminjaman tidak valid untuk konfirmasi pengembalian.');
+            return back()->with('error', 'Status peminjaman tidak valid untuk konfirmasi pengembalian. Status saat ini: ' . $borrowRequest->status);
         }
 
+        // Proses pengembalian dalam transaction
         return DB::transaction(function () use ($borrowRequest, $request) {
+            // Lock buku untuk update stok
             $book = $borrowRequest->book()->lockForUpdate()->first();
 
+            // Tambah stok kembali
             $book->increment('stock');
 
+            // Update status peminjaman
             $borrowRequest->update([
                 'status' => BorrowRequest::STATUS_RETURNED,
                 'return_confirmed_by' => $request->user()->id,
                 'return_confirmed_at' => now(),
             ]);
 
-            return back()->with('success', 'Pengembalian buku telah dikonfirmasi.');
+            return back()->with('success', 'Pengembalian buku "' . $book->title . '" oleh ' . $borrowRequest->user->name . ' telah dikonfirmasi. Stok sekarang: ' . $book->stock);
         });
+    }
+
+    public function scanner()
+    {
+        $this->authorizeStaff();
+        return view('scanner.index');
+    }
+
+    public function verifyQR(Request $request)
+    {
+        $this->authorizeStaff();
+
+        $data = $request->validate([
+            'qr_data' => ['required', 'string'],
+        ]);
+
+        try {
+            // Parse QR code data
+            $qrData = json_decode($data['qr_data'], true);
+
+            if (!$qrData || !isset($qrData['code']) || $qrData['type'] !== 'borrow_verification') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'QR Code tidak valid atau format salah.'
+                ], 400);
+            }
+
+            // Find borrow request by code
+            $borrowRequest = BorrowRequest::with(['book', 'user'])
+                ->where('borrow_code', $qrData['code'])
+                ->first();
+
+            if (!$borrowRequest) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kode peminjaman tidak ditemukan.'
+                ], 404);
+            }
+
+            // Return borrow details
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'borrow_code' => $borrowRequest->borrow_code,
+                    'status' => $borrowRequest->status,
+                    'status_label' => $this->getStatusLabel($borrowRequest->status),
+                    'book' => [
+                        'title' => $borrowRequest->book->title,
+                        'author' => $borrowRequest->book->author,
+                        'isbn' => $borrowRequest->book->isbn,
+                    ],
+                    'user' => [
+                        'name' => $borrowRequest->user->name,
+                        'email' => $borrowRequest->user->email,
+                    ],
+                    'due_date' => $borrowRequest->due_date ? $borrowRequest->due_date->translatedFormat('d F Y') : null,
+                    'processed_at' => $borrowRequest->processed_at ? $borrowRequest->processed_at->translatedFormat('d F Y H:i') : null,
+                    'days_remaining' => $borrowRequest->due_date ? now()->diffInDays($borrowRequest->due_date, false) : null,
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat memverifikasi QR Code: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    protected function getStatusLabel($status)
+    {
+        return match($status) {
+            BorrowRequest::STATUS_PENDING => 'Menunggu Persetujuan',
+            BorrowRequest::STATUS_APPROVED => 'Disetujui',
+            BorrowRequest::STATUS_REJECTED => 'Ditolak',
+            BorrowRequest::STATUS_RETURN_REQUESTED => 'Menunggu Pengembalian',
+            BorrowRequest::STATUS_RETURNED => 'Dikembalikan',
+            default => 'Tidak Diketahui',
+        };
     }
 
     protected function authorizeAction(BorrowRequest $borrowRequest): void
@@ -164,6 +263,15 @@ class BorrowRequestController extends Controller
         $user = request()->user();
 
     if (! $user || ! in_array($user->role, [User::ROLE_ADMIN, User::ROLE_PEGAWAI], true)) {
+            abort(403);
+        }
+    }
+
+    protected function authorizeStaff(): void
+    {
+        $user = request()->user();
+
+        if (! $user || ! in_array($user->role, [User::ROLE_ADMIN, User::ROLE_PEGAWAI], true)) {
             abort(403);
         }
     }

@@ -30,8 +30,12 @@
                             {{ __('Kelola Buku') }}
                         </x-nav-link>
 
-                        <x-nav-link :href="route('borrows.index')" :active="request()->routeIs('borrows.*')">
+                        <x-nav-link :href="route('borrows.index')" :active="request()->routeIs('borrows.*') && !request()->routeIs('scanner')">
                             {{ __('Peminjaman') }}
+                        </x-nav-link>
+
+                        <x-nav-link :href="route('scanner')" :active="request()->routeIs('scanner')">
+                            {{ __('Scanner QR') }}
                         </x-nav-link>
                     @endif
 
@@ -107,8 +111,12 @@
                     {{ __('Kelola Buku') }}
                 </x-responsive-nav-link>
 
-                <x-responsive-nav-link :href="route('borrows.index')" :active="request()->routeIs('borrows.*')">
+                <x-responsive-nav-link :href="route('borrows.index')" :active="request()->routeIs('borrows.*') && !request()->routeIs('scanner')">
                     {{ __('Peminjaman') }}
+                </x-responsive-nav-link>
+
+                <x-responsive-nav-link :href="route('scanner')" :active="request()->routeIs('scanner')">
+                    {{ __('Scanner QR') }}
                 </x-responsive-nav-link>
             @endif
 

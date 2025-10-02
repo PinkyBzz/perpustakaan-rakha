@@ -29,7 +29,7 @@ class StoreBookRequest extends FormRequest
             'isbn' => ['nullable', 'string', 'max:50', 'unique:books,isbn'],
             'stock' => ['required', 'integer', 'min:0'],
             'description' => ['nullable', 'string'],
-            'cover_image' => ['nullable', 'image', 'max:2048'],
+            'cover_image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:2048'],
         ];
     }
 }

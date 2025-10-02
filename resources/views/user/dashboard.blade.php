@@ -60,14 +60,25 @@
                                     <td class="px-4 py-3 font-mono text-xs">{{ $borrow->borrow_code ?? '—' }}</td>
                                     <td class="px-4 py-3">
                                         @if ($borrow->status === \App\Models\BorrowRequest::STATUS_APPROVED)
-                                            <form action="{{ route('borrow.request-return', $borrow) }}" method="POST">
-                                                @csrf
-                                                <button class="px-3 py-1 text-xs font-semibold text-white bg-indigo-600 rounded hover:bg-indigo-500" type="submit">
-                                                    Konfirmasi Pengembalian
+                                            <div class="flex flex-col gap-2">
+                                                <button onclick="showQRCode('{{ $borrow->borrow_code }}', '{{ $borrow->book->title }}', '{{ optional($borrow->due_date)->translatedFormat('d F Y') }}')" class="px-3 py-1.5 text-xs font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-500 transition-colors flex items-center justify-center gap-1">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                                                    </svg>
+                                                    Tampilkan QR Code
                                                 </button>
-                                            </form>
+                                                <form action="{{ route('borrow.request-return', $borrow) }}" method="POST">
+                                                    @csrf
+                                                    <button class="w-full px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-500 transition-colors flex items-center justify-center gap-1" type="submit">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path>
+                                                        </svg>
+                                                        Minta Pengembalian
+                                                    </button>
+                                                </form>
+                                            </div>
                                         @elseif ($borrow->status === \App\Models\BorrowRequest::STATUS_RETURN_REQUESTED)
-                                            <span class="text-xs text-gray-500">Menunggu verifikasi petugas</span>
+                                            <span class="text-xs text-gray-500 italic">Menunggu verifikasi petugas</span>
                                         @else
                                             <span class="text-xs text-gray-400">—</span>
                                         @endif
@@ -132,4 +143,110 @@
             </div>
         </div>
     </div>
+
+    <!-- QR Code Modal -->
+    <div id="qrModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full transform transition-all" onclick="event.stopPropagation()">
+            <div class="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-4 rounded-t-2xl">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xl font-bold flex items-center gap-2">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                        </svg>
+                        QR Code Peminjaman
+                    </h3>
+                    <button onclick="closeQRModal()" class="text-white hover:text-gray-200 transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6">
+                <div class="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 mb-4">
+                    <div class="flex justify-center mb-4">
+                        <div id="qrcode" class="bg-white p-4 rounded-lg shadow-lg"></div>
+                    </div>
+                    <div class="text-center space-y-2">
+                        <div class="bg-white rounded-lg px-4 py-2 shadow-sm">
+                            <p class="text-xs text-gray-500 mb-1">Kode Peminjaman</p>
+                            <p id="borrowCode" class="text-xl font-bold text-purple-600 font-mono"></p>
+                        </div>
+                        <div class="bg-white rounded-lg px-4 py-2 shadow-sm">
+                            <p class="text-xs text-gray-500 mb-1">Buku</p>
+                            <p id="bookTitle" class="text-sm font-semibold text-gray-800"></p>
+                        </div>
+                        <div class="bg-white rounded-lg px-4 py-2 shadow-sm">
+                            <p class="text-xs text-gray-500 mb-1">Tenggat Pengembalian</p>
+                            <p id="dueDate" class="text-sm font-semibold text-red-600"></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+                    <p class="text-sm text-yellow-800">
+                        <strong>📱 Cara Penggunaan:</strong><br>
+                        Tunjukkan QR Code ini ke petugas perpustakaan untuk verifikasi peminjaman buku Anda.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @push('scripts')
+    <!-- QRCode.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
+    <script>
+        let qrcodeInstance = null;
+
+        function showQRCode(borrowCode, bookTitle, dueDate) {
+            // Update modal content
+            document.getElementById('borrowCode').textContent = borrowCode;
+            document.getElementById('bookTitle').textContent = bookTitle;
+            document.getElementById('dueDate').textContent = dueDate;
+
+            // Clear previous QR code
+            const qrcodeDiv = document.getElementById('qrcode');
+            qrcodeDiv.innerHTML = '';
+
+            // Generate new QR code with borrow information
+            const qrData = JSON.stringify({
+                code: borrowCode,
+                book: bookTitle,
+                due_date: dueDate,
+                type: 'borrow_verification'
+            });
+
+            qrcodeInstance = new QRCode(qrcodeDiv, {
+                text: qrData,
+                width: 200,
+                height: 200,
+                colorDark: "#7c3aed",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+
+            // Show modal
+            document.getElementById('qrModal').classList.remove('hidden');
+        }
+
+        function closeQRModal() {
+            document.getElementById('qrModal').classList.add('hidden');
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('qrModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeQRModal();
+            }
+        });
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeQRModal();
+            }
+        });
+    </script>
+    @endpush
 </x-app-layout>

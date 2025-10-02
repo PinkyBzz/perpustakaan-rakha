@@ -16,6 +16,27 @@
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
+        
+        <style>
+            /* Smooth page load transition */
+            body {
+                opacity: 0;
+                animation: fadeInBody 0.4s ease-in forwards;
+            }
+            
+            @keyframes fadeInBody {
+                to {
+                    opacity: 1;
+                }
+            }
+            
+            /* Smooth transitions for all interactive elements */
+            * {
+                transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+                transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+                transition-duration: 150ms;
+            }
+        </style>
     </head>
     <body class="font-sans antialiased">
         <div class="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">

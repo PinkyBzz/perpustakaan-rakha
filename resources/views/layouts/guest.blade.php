@@ -16,10 +16,24 @@
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
+        
+        <style>
+            /* Smooth page load transition */
+            body {
+                opacity: 0;
+                animation: fadeInBody 0.4s ease-in forwards;
+            }
+            
+            @keyframes fadeInBody {
+                to {
+                    opacity: 1;
+                }
+            }
+        </style>
     </head>
     <body class="font-sans text-gray-900 antialiased">
         <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100">
-            <div class="flex flex-col items-center mb-6">
+            <div class="flex flex-col items-center mb-6 fade-in-down">
                 <a href="/" class="mb-3 transition-transform hover:scale-110">
                     <x-application-logo class="w-24 h-24" />
                 </a>
@@ -29,7 +43,7 @@
                 <p class="text-sm text-gray-600 mt-1">Sistem Manajemen Perpustakaan Digital</p>
             </div>
 
-            <div class="w-full sm:max-w-md px-6 py-8 bg-white shadow-xl overflow-hidden sm:rounded-2xl border border-gray-100">
+            <div class="w-full sm:max-w-md px-6 py-8 bg-white shadow-xl overflow-hidden sm:rounded-2xl border border-gray-100 fade-in-up">
                 {{ $slot }}
             </div>
         </div>

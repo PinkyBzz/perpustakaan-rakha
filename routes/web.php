@@ -30,6 +30,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/borrows/{borrowRequest}/approve', [BorrowRequestController::class, 'approve'])->name('borrows.approve');
         Route::post('/borrows/{borrowRequest}/reject', [BorrowRequestController::class, 'reject'])->name('borrows.reject');
         Route::post('/borrows/{borrowRequest}/confirm-return', [BorrowRequestController::class, 'confirmReturn'])->name('borrows.confirm-return');
+        Route::get('/scanner', [BorrowRequestController::class, 'scanner'])->name('scanner');
+        Route::post('/scanner/verify', [BorrowRequestController::class, 'verifyQR'])->name('scanner.verify');
     });
 
     Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {
