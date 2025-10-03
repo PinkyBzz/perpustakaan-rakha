@@ -26,6 +26,44 @@
     .input-focus {
         @apply focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200;
     }
+    
+    /* Utility to force elements visible and interactive */
+    .force-visible {
+        opacity: 1 !important;
+        visibility: visible !important;
+        animation: none !important;
+        pointer-events: auto !important;
+    }
+    .actions-cell button {
+        position: relative;
+        z-index: 10;
+        pointer-events: auto;
+    }
+    .actions-cell form,
+    .actions-cell input {
+        pointer-events: auto;
+    }
+    
+    /* Critical: Force all form elements and buttons to stay visible */
+    form,
+    form *,
+    table form,
+    table form *,
+    button,
+    input,
+    select,
+    textarea {
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    
+    /* Prevent any animation on form elements */
+    form,
+    form *,
+    table form,
+    table form * {
+        animation: none !important;
+    }
 }
 
 @layer utilities {
@@ -33,121 +71,6 @@
         text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
     }
     
-    /* Fade In Animation */
-    .animate-fade-in {
-        animation: fadeIn 0.5s ease-in;
-    }
-    
-    @keyframes fadeIn {
-        from {
-            opacity: 0;
-            transform: translateY(10px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    /* Slide In Animation */
-    .animate-slide-in {
-        animation: slideIn 0.6s ease-out;
-    }
-    
-    @keyframes slideIn {
-        from {
-            opacity: 0;
-            transform: translateX(-20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateX(0);
-        }
-    }
-    
-    /* Smooth Page Load Animations */
-    .fade-in-up {
-        animation: fadeInUp 0.6s ease-out;
-    }
-    
-    @keyframes fadeInUp {
-        from {
-            opacity: 0;
-            transform: translateY(30px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    .fade-in-down {
-        animation: fadeInDown 0.6s ease-out;
-    }
-    
-    @keyframes fadeInDown {
-        from {
-            opacity: 0;
-            transform: translateY(-30px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    .fade-in-left {
-        animation: fadeInLeft 0.6s ease-out;
-    }
-    
-    @keyframes fadeInLeft {
-        from {
-            opacity: 0;
-            transform: translateX(-30px);
-        }
-        to {
-            opacity: 1;
-            transform: translateX(0);
-        }
-    }
-    
-    .fade-in-right {
-        animation: fadeInRight 0.6s ease-out;
-    }
-    
-    @keyframes fadeInRight {
-        from {
-            opacity: 0;
-            transform: translateX(30px);
-        }
-        to {
-            opacity: 1;
-            transform: translateX(0);
-        }
-    }
-    
-    .scale-in {
-        animation: scaleIn 0.5s ease-out;
-    }
-    
-    @keyframes scaleIn {
-        from {
-            opacity: 0;
-            transform: scale(0.9);
-        }
-        to {
-            opacity: 1;
-            transform: scale(1);
-        }
-    }
-    
-    /* Stagger Animation Delays */
-    .delay-100 { animation-delay: 0.1s; }
-    .delay-200 { animation-delay: 0.2s; }
-    .delay-300 { animation-delay: 0.3s; }
-    .delay-400 { animation-delay: 0.4s; }
-    .delay-500 { animation-delay: 0.5s; }
-    .delay-600 { animation-delay: 0.6s; }
-    .delay-700 { animation-delay: 0.7s; }
-    .delay-800 { animation-delay: 0.8s; }
+    /* SEMUA ANIMASI DIHAPUS - TIDAK ADA ANIMASI OPACITY */
+    /* Animasi ini menyebabkan button hilang, jadi dihapus total */
 }

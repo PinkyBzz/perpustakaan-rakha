@@ -57,7 +57,7 @@
                         <tbody>
                             @forelse ($pending as $request)
                                 <tr class="border-b">
-                                    <td class="px-4 py-3">
+                                    <td class="px-4 py-3 actions-cell force-visible">
                                         <div class="font-semibold text-gray-800">{{ $request->user->name }}</div>
                                         <p class="text-xs text-gray-500">{{ $request->user->email }}</p>
                                     </td>
@@ -69,23 +69,23 @@
                                     <td class="px-4 py-3 text-sm">{{ $request->notes ?? '—' }}</td>
                                     <td class="px-4 py-3">
                                         @if ($request->status === \App\Models\BorrowRequest::STATUS_PENDING)
-                                            <div class="space-y-2">
-                                                <form action="{{ route('borrows.approve', $request) }}" method="POST" class="space-y-2" onsubmit="return validateApprove(this)">
+                                            <div class="space-y-2" style="opacity: 1 !important; visibility: visible !important;">
+                                                <form action="{{ route('borrows.approve', $request) }}" method="POST" class="space-y-2" onsubmit="return validateApprove(this)" style="opacity: 1 !important; visibility: visible !important;">
                                                     @csrf
-                                                    <div>
-                                                        <label class="block text-xs text-gray-600 mb-1">Tenggat Pengembalian:</label>
-                                                        <input type="date" name="due_date" class="border-gray-300 rounded-md shadow-sm text-sm w-full" min="{{ date('Y-m-d', strtotime('+1 day')) }}" value="{{ date('Y-m-d', strtotime('+7 days')) }}" required>
+                                                    <div style="opacity: 1 !important; visibility: visible !important;">
+                                                        <label class="block text-xs text-gray-600 mb-1" style="opacity: 1 !important; visibility: visible !important;">Tenggat Pengembalian:</label>
+                                                        <input type="date" name="due_date" class="border-gray-300 rounded-md shadow-sm text-sm w-full" min="{{ date('Y-m-d', strtotime('+1 day')) }}" value="{{ date('Y-m-d', strtotime('+7 days')) }}" required style="opacity: 1 !important; visibility: visible !important; display: block !important;">
                                                     </div>
-                                                    <button type="submit" class="w-full px-3 py-2 bg-green-600 text-white text-xs font-semibold rounded-md hover:bg-green-500 transition-colors flex items-center justify-center gap-1">
+                                                    <button type="submit" class="w-full px-3 py-2 bg-green-600 text-white text-xs font-semibold rounded-md hover:bg-green-500 transition-colors flex items-center justify-center gap-1" style="opacity: 1 !important; visibility: visible !important; display: flex !important; animation: none !important;">
                                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                                                         </svg>
                                                         Setujui
                                                     </button>
                                                 </form>
-                                                <form action="{{ route('borrows.reject', $request) }}" method="POST" onsubmit="return confirm('Yakin ingin menolak permintaan ini?');">
+                                                <form action="{{ route('borrows.reject', $request) }}" method="POST" onsubmit="return confirm('Yakin ingin menolak permintaan ini?');" style="opacity: 1 !important; visibility: visible !important;">
                                                     @csrf
-                                                    <button type="submit" class="w-full px-3 py-2 bg-red-600 text-white text-xs font-semibold rounded-md hover:bg-red-500 transition-colors flex items-center justify-center gap-1">
+                                                    <button type="submit" class="w-full px-3 py-2 bg-red-600 text-white text-xs font-semibold rounded-md hover:bg-red-500 transition-colors flex items-center justify-center gap-1" style="opacity: 1 !important; visibility: visible !important; display: flex !important; animation: none !important;">
                                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                                                         </svg>
@@ -183,16 +183,74 @@
             return confirm('Setujui permintaan peminjaman ini dengan tenggat ' + dueDate + '?');
         }
 
-        // Auto dismiss alerts after 5 seconds
+        // Page ready handlers (no auto-dismiss to avoid side effects)
         document.addEventListener('DOMContentLoaded', function() {
-            const alerts = document.querySelectorAll('[class*="bg-green-50"], [class*="bg-red-50"]');
-            alerts.forEach(alert => {
-                setTimeout(() => {
-                    alert.style.transition = 'opacity 0.5s ease-out';
-                    alert.style.opacity = '0';
-                    setTimeout(() => alert.remove(), 500);
-                }, 5000);
-            });
+            // DO NOT auto-dismiss alerts anymore
+            // Keep success/error alerts visible to avoid accidentally removing siblings
+
+            // CRITICAL: Force buttons to stay visible at all times
+            const forceButtonVisibility = () => {
+                // Approve/Reject buttons
+                const buttons = document.querySelectorAll('td button[type="submit"], form button[type="submit"]');
+                buttons.forEach(button => {
+                    button.style.opacity = '1';
+                    button.style.visibility = 'visible';
+                    button.style.display = button.classList.contains('flex') ? 'flex' : 'block';
+                    button.style.animation = 'none';
+                });
+
+                // Ensure forms and inputs stay visible
+                const forms = document.querySelectorAll('td form');
+                forms.forEach(form => {
+                    form.style.opacity = '1';
+                    form.style.visibility = 'visible';
+                    form.style.animation = 'none';
+                });
+
+                const inputs = document.querySelectorAll('td input, td select, td textarea');
+                inputs.forEach(input => {
+                    input.style.opacity = '1';
+                    input.style.visibility = 'visible';
+                    input.style.display = 'block';
+                    input.style.animation = 'none';
+                });
+            };
+
+            // Run immediately
+            forceButtonVisibility();
+
+            // MutationObserver: re-apply visibility if DOM changes
+            const tbody = document.querySelector('table tbody');
+            if (tbody) {
+                const observer = new MutationObserver((mutations) => {
+                    let needEnforce = false;
+                    for (const m of mutations) {
+                        if (m.type === 'childList' || m.type === 'attributes') {
+                            needEnforce = true; break;
+                        }
+                    }
+                    if (needEnforce) {
+                        forceButtonVisibility();
+                        // Strip potentially harmful classes
+                        document.querySelectorAll('.actions-cell, .actions-cell *').forEach(el => {
+                            el.classList.remove('hidden', 'invisible');
+                            const cs = window.getComputedStyle(el);
+                            if (cs.display === 'none' || cs.opacity === '0' || cs.visibility === 'hidden') {
+                                el.style.display = el.tagName.toLowerCase() === 'button' ? 'flex' : 'block';
+                                el.style.opacity = '1';
+                                el.style.visibility = 'visible';
+                            }
+                        });
+                    }
+                });
+                observer.observe(tbody, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
+                console.log('Button protection observer attached');
+            }
+
+            // Fallback interval – lighter frequency
+            setInterval(forceButtonVisibility, 500);
+
+            console.log('Button protection active – approve/reject buttons locked visible');
         });
     </script>
     @endpush

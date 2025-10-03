@@ -18,23 +18,25 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
         
         <style>
-            /* Smooth page load transition */
-            body {
-                opacity: 0;
-                animation: fadeInBody 0.4s ease-in forwards;
+            /* NO BODY ANIMATION - removed to prevent button disappearing */
+            
+            /* Critical: Keep buttons and forms always visible */
+            button,
+            input,
+            select,
+            textarea,
+            form,
+            form *,
+            table button,
+            table input,
+            table form,
+            table form * {
+                opacity: 1 !important;
+                visibility: visible !important;
             }
             
-            @keyframes fadeInBody {
-                to {
-                    opacity: 1;
-                }
-            }
-            
-            /* Smooth transitions for all interactive elements */
-            * {
-                transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
-                transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-                transition-duration: 150ms;
+            button[type="submit"] {
+                display: flex !important;
             }
         </style>
     </head>
