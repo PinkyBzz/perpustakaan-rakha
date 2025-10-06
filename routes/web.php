@@ -27,6 +27,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:admin,pegawai')->group(function () {
         Route::resource('books', BookController::class)->except(['show']);
         Route::get('/borrows', [BorrowRequestController::class, 'index'])->name('borrows.index');
+    Route::post('/borrows/staff-create', [BorrowRequestController::class, 'staffCreate'])->name('borrows.staff-create');
         Route::post('/borrows/{borrowRequest}/approve', [BorrowRequestController::class, 'approve'])->name('borrows.approve');
         Route::post('/borrows/{borrowRequest}/reject', [BorrowRequestController::class, 'reject'])->name('borrows.reject');
         Route::post('/borrows/{borrowRequest}/confirm-return', [BorrowRequestController::class, 'confirmReturn'])->name('borrows.confirm-return');

@@ -27,12 +27,17 @@ class BorrowRequest extends Model
         'processed_action',
         'return_confirmed_by',
         'return_confirmed_at',
+        'guest_name',
+        'guest_contact',
+        'guest_identifier',
+        'is_guest',
     ];
 
     protected $casts = [
         'due_date' => 'date',
         'processed_at' => 'datetime',
         'return_confirmed_at' => 'datetime',
+        'is_guest' => 'boolean',
     ];
 
     public function user()

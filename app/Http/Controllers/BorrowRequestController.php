@@ -67,6 +67,75 @@ class BorrowRequestController extends Controller
         return back()->with('success', 'Permintaan peminjaman buku berhasil dikirim.');
     }
 
+    /**
+     * Staff creates a borrow directly (can be for existing user or guest).
+     */
+    public function staffCreate(Request $request): RedirectResponse
+    {
+        $this->authorizeStaff();
+
+        $data = $request->validate([
+            'book_id' => ['required', 'exists:books,id'],
+            'due_date' => ['required', 'date', 'after:today'],
+            'existing_user_id' => ['nullable', 'exists:users,id'],
+            'guest_name' => ['required_without:existing_user_id', 'nullable', 'string', 'max:255'],
+            'guest_contact' => ['nullable', 'string', 'max:255'],
+            'guest_identifier' => ['nullable', 'string', 'max:255'],
+            'notes' => ['nullable', 'string', 'max:500'],
+        ], [
+            'book_id.required' => 'Pilih buku.',
+            'due_date.required' => 'Tanggal pengembalian wajib.',
+            'due_date.after' => 'Tanggal harus setelah hari ini.',
+            'guest_name.required_without' => 'Nama tamu wajib jika tidak memilih user terdaftar.',
+        ]);
+
+        $book = Book::findOrFail($data['book_id']);
+        if ($book->stock <= 0) {
+            return back()->with('error', 'Stok buku habis.');
+        }
+
+        // Prevent duplicate active borrow for same book & user if existing user chosen
+        if (!empty($data['existing_user_id'])) {
+            $duplicate = BorrowRequest::where('user_id', $data['existing_user_id'])
+                ->where('book_id', $book->id)
+                ->whereIn('status', [
+                    BorrowRequest::STATUS_PENDING,
+                    BorrowRequest::STATUS_APPROVED,
+                    BorrowRequest::STATUS_RETURN_REQUESTED,
+                ])->exists();
+            if ($duplicate) {
+                return back()->with('error', 'User tersebut masih punya peminjaman aktif untuk buku ini.');
+            }
+        }
+
+        return DB::transaction(function () use ($data, $book, $request) {
+            // Reduce stock immediately when staff creates (auto-approved scenario)
+            $book = $book->lockForUpdate();
+            if ($book->stock <= 0) {
+                return back()->with('error', 'Stok buku habis.');
+            }
+            $book->decrement('stock');
+
+            $borrow = BorrowRequest::create([
+                'user_id' => $data['existing_user_id'] ?? null,
+                'book_id' => $book->id,
+                'status' => BorrowRequest::STATUS_APPROVED,
+                'due_date' => $data['due_date'],
+                'notes' => $data['notes'] ?? null,
+                'borrow_code' => 'BRW-' . strtoupper(Str::random(6)),
+                'processed_by' => $request->user()->id,
+                'processed_at' => now(),
+                'processed_action' => 'approved',
+                'guest_name' => $data['existing_user_id'] ? null : ($data['guest_name'] ?? null),
+                'guest_contact' => $data['existing_user_id'] ? null : ($data['guest_contact'] ?? null),
+                'guest_identifier' => $data['existing_user_id'] ? null : ($data['guest_identifier'] ?? null),
+                'is_guest' => empty($data['existing_user_id']),
+            ]);
+
+            return back()->with('success', 'Peminjaman berhasil dibuat ('.($borrow->is_guest ? 'Tamu' : 'User').'). Kode: '.$borrow->borrow_code);
+        });
+    }
+
     public function approve(Request $request, BorrowRequest $borrowRequest): RedirectResponse
     {
         $this->authorizeAction($borrowRequest);
@@ -217,7 +286,11 @@ class BorrowRequestController extends Controller
                 ], 404);
             }
 
-            // Return borrow details
+            // Return borrow details (supports guest)
+            $dueDate = $borrowRequest->due_date ? \Carbon\Carbon::parse($borrowRequest->due_date)->format('d M Y') : null;
+            $processedAt = $borrowRequest->processed_at ? \Carbon\Carbon::parse($borrowRequest->processed_at)->format('d M Y H:i') : null;
+            $daysRemaining = $borrowRequest->due_date ? now()->diffInDays(\Carbon\Carbon::parse($borrowRequest->due_date), false) : null;
+
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -229,13 +302,19 @@ class BorrowRequestController extends Controller
                         'author' => $borrowRequest->book->author,
                         'isbn' => $borrowRequest->book->isbn,
                     ],
-                    'user' => [
+                    'user' => $borrowRequest->user ? [
                         'name' => $borrowRequest->user->name,
                         'email' => $borrowRequest->user->email,
+                        'is_guest' => false,
+                    ] : [
+                        'name' => $borrowRequest->guest_name,
+                        'email' => $borrowRequest->guest_contact,
+                        'identifier' => $borrowRequest->guest_identifier,
+                        'is_guest' => true,
                     ],
-                    'due_date' => $borrowRequest->due_date ? $borrowRequest->due_date->translatedFormat('d F Y') : null,
-                    'processed_at' => $borrowRequest->processed_at ? $borrowRequest->processed_at->translatedFormat('d F Y H:i') : null,
-                    'days_remaining' => $borrowRequest->due_date ? now()->diffInDays($borrowRequest->due_date, false) : null,
+                    'due_date' => $dueDate,
+                    'processed_at' => $processedAt,
+                    'days_remaining' => $daysRemaining,
                 ]
             ]);
         } catch (\Exception $e) {

@@ -13,6 +13,73 @@
 
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-8">
+            @if(auth()->user() && in_array(auth()->user()->role, ['admin','pegawai']))
+            <div class="bg-white shadow-xl sm:rounded-xl p-6 border border-indigo-100">
+                <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    Buat Peminjaman (Tamu / User)
+                </h3>
+                <form method="POST" action="{{ route('borrows.staff-create') }}" class="grid gap-4 md:grid-cols-4" onsubmit="return confirm('Buat peminjaman langsung? Stok buku akan berkurang.');">
+                    @csrf
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Buku</label>
+                        <select name="book_id" required class="w-full border-gray-300 rounded-md shadow-sm text-sm">
+                            <option value="">-- Pilih Buku --</option>
+                            @foreach(\App\Models\Book::orderBy('title')->limit(200)->get() as $b)
+                                <option value="{{ $b->id }}">{{ $b->title }} (Stok: {{ $b->stock }})</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Tenggat</label>
+                        <input type="date" name="due_date" class="w-full border-gray-300 rounded-md shadow-sm text-sm" min="{{ date('Y-m-d', strtotime('+1 day')) }}" required>
+                    </div>
+                    <div class="md:col-span-4 pt-2">
+                        <div class="flex items-center gap-4 text-sm">
+                            <label class="font-semibold">Mode:</label>
+                            <label class="inline-flex items-center gap-1"><input type="radio" name="mode" value="existing" checked onchange="toggleGuest(false)"> <span>User Terdaftar</span></label>
+                            <label class="inline-flex items-center gap-1"><input type="radio" name="mode" value="guest" onchange="toggleGuest(true)"> <span>Tamu (Tanpa Akun)</span></label>
+                        </div>
+                    </div>
+                    <div id="existing-user-wrapper" class="md:col-span-2">
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">User Terdaftar</label>
+                        <select name="existing_user_id" class="w-full border-gray-300 rounded-md shadow-sm text-sm">
+                            <option value="">-- Pilih User --</option>
+                            @foreach(\App\Models\User::where('role','user')->orderBy('name')->limit(300)->get() as $u)
+                                <option value="{{ $u->id }}">{{ $u->name }} ({{ $u->email }})</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div id="guest-fields" class="md:col-span-4 hidden border rounded-md p-4 bg-gray-50">
+                        <div class="grid md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">Nama Tamu</label>
+                                <input type="text" name="guest_name" class="w-full border-gray-300 rounded-md shadow-sm text-sm" placeholder="Nama lengkap">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">Kontak (Email / Telp)</label>
+                                <input type="text" name="guest_contact" class="w-full border-gray-300 rounded-md shadow-sm text-sm" placeholder="Email atau No. HP">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">Identifier (NIS/NIK)</label>
+                                <input type="text" name="guest_identifier" class="w-full border-gray-300 rounded-md shadow-sm text-sm" placeholder="Opsional">
+                            </div>
+                        </div>
+                        <p class="text-[11px] text-gray-500 mt-2">Data tamu hanya tersimpan di record peminjaman.</p>
+                    </div>
+                    <div class="md:col-span-4">
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Catatan</label>
+                        <input type="text" name="notes" class="w-full border-gray-300 rounded-md shadow-sm text-sm" placeholder="Catatan opsional">
+                    </div>
+                    <div class="md:col-span-4 flex justify-end">
+                        <button type="submit" class="px-5 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-md hover:bg-indigo-500 flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            Simpan & Setujui Langsung
+                        </button>
+                    </div>
+                </form>
+            </div>
+            @endif
             @if (session('success'))
                 <div class="bg-green-50 border-l-4 border-green-500 text-green-800 px-6 py-4 rounded-lg shadow-md flex items-start gap-3">
                     <svg class="w-6 h-6 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -185,6 +252,20 @@
 
         // Page ready handlers (no auto-dismiss to avoid side effects)
         document.addEventListener('DOMContentLoaded', function() {
+            window.toggleGuest = function(isGuest) {
+                const guestBox = document.getElementById('guest-fields');
+                const existingWrapper = document.getElementById('existing-user-wrapper');
+                if (isGuest) {
+                    guestBox.classList.remove('hidden');
+                    existingWrapper.classList.add('opacity-50');
+                    existingWrapper.querySelector('select').disabled = true;
+                } else {
+                    guestBox.classList.add('hidden');
+                    existingWrapper.classList.remove('opacity-50');
+                    existingWrapper.querySelector('select').disabled = false;
+                }
+            };
+
             // DO NOT auto-dismiss alerts anymore
             // Keep success/error alerts visible to avoid accidentally removing siblings
 
