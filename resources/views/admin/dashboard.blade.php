@@ -99,7 +99,12 @@
                                         <tr class="border-b">
                                             <td class="px-4 py-3 font-mono text-xs text-gray-700">{{ $request->borrow_code ?? '—' }}</td>
                                             <td class="px-4 py-3">{{ $request->book->title }}</td>
-                                            <td class="px-4 py-3">{{ $request->user->name }}</td>
+                                            <td class="px-4 py-3">
+                                                {{ $request->user ? $request->user->name : $request->guest_name }}
+                                                @if($request->is_guest)
+                                                    <span class="text-xs text-yellow-600">(Tamu)</span>
+                                                @endif
+                                            </td>
                                             <td class="px-4 py-3">
                                                 <x-status-badge :status="$request->status" />
                                             </td>

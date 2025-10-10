@@ -94,6 +94,59 @@
                 </div>
             </div>
 
+            {{-- Reservasi Antrian --}}
+            @php($myReservations = \App\Models\BookReservation::with('book')->where('user_id', auth()->id())->whereIn('status', ['waiting', 'notified'])->orderBy('created_at')->get())
+            @if($myReservations->count() > 0)
+            <div class="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl shadow-md p-6 border border-yellow-200">
+                <h3 class="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                    <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Antrian Reservasi Buku
+                </h3>
+                <div class="space-y-3">
+                    @foreach($myReservations as $reservation)
+                        @php($queuePos = \App\Models\BookReservation::where('book_id', $reservation->book_id)->where('status', 'waiting')->where('created_at', '<', $reservation->created_at)->count() + 1)
+                        <div class="bg-white rounded-lg p-4 shadow-sm border border-yellow-100">
+                            <div class="flex items-start justify-between gap-4">
+                                <div class="flex-1">
+                                    <h4 class="font-semibold text-gray-900">{{ $reservation->book->title }}</h4>
+                                    <p class="text-sm text-gray-600 mt-1">{{ $reservation->book->author }}</p>
+                                    @if($reservation->status === 'waiting')
+                                        <div class="flex items-center gap-2 mt-2">
+                                            <span class="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full">
+                                                Antrian ke-{{ $queuePos }}
+                                            </span>
+                                            <span class="text-xs text-gray-500">Sejak {{ $reservation->created_at->diffForHumans() }}</span>
+                                        </div>
+                                    @elseif($reservation->status === 'notified')
+                                        <div class="mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                                            <p class="text-sm text-green-800 font-semibold">✅ Buku Tersedia!</p>
+                                            <p class="text-xs text-green-700 mt-1">
+                                                Berlaku sampai {{ \Carbon\Carbon::parse($reservation->expires_at)->format('d M Y H:i') }}
+                                            </p>
+                                            <a href="{{ route('books.show', $reservation->book) }}" class="inline-block mt-2 text-sm text-green-700 hover:text-green-900 underline font-semibold">
+                                                Pinjam Sekarang →
+                                            </a>
+                                        </div>
+                                    @endif
+                                </div>
+                                <form action="{{ route('reservations.cancel', $reservation) }}" method="POST">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" onclick="return confirm('Batalkan reservasi?')" class="text-sm text-red-600 hover:text-red-800">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                        </svg>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+            @endif
+
             <div>
                 <h3 class="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                     <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\BookController;
 use App\Http\Controllers\BookRatingController;
+use App\Http\Controllers\BookReservationController;
 use App\Http\Controllers\BorrowRequestController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
@@ -22,6 +23,10 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:user')->group(function () {
         Route::post('/borrow', [BorrowRequestController::class, 'store'])->name('borrow.store');
         Route::post('/borrow/{borrowRequest}/return', [BorrowRequestController::class, 'requestReturn'])->name('borrow.request-return');
+        
+        // Reservations
+        Route::post('/reservations', [BookReservationController::class, 'store'])->name('reservations.store');
+        Route::delete('/reservations/{reservation}', [BookReservationController::class, 'cancel'])->name('reservations.cancel');
     });
 
     Route::middleware('role:admin,pegawai')->group(function () {

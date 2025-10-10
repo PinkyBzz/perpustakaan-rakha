@@ -125,8 +125,11 @@
                             @forelse ($pending as $request)
                                 <tr class="border-b">
                                     <td class="px-4 py-3 actions-cell force-visible">
-                                        <div class="font-semibold text-gray-800">{{ $request->user->name }}</div>
-                                        <p class="text-xs text-gray-500">{{ $request->user->email }}</p>
+                                        <div class="font-semibold text-gray-800">{{ $request->user ? $request->user->name : $request->guest_name }}</div>
+                                        <p class="text-xs text-gray-500">{{ $request->user ? $request->user->email : ($request->guest_contact ?? 'Tamu') }}</p>
+                                        @if($request->is_guest)
+                                            <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">Tamu</span>
+                                        @endif
                                     </td>
                                     <td class="px-4 py-3">
                                         <div class="font-semibold text-gray-800">{{ $request->book->title }}</div>
@@ -209,7 +212,12 @@
                         <tbody>
                             @forelse ($history as $item)
                                 <tr class="border-b">
-                                    <td class="px-4 py-3">{{ $item->user->name }}</td>
+                                    <td class="px-4 py-3">
+                                        <div class="font-semibold">{{ $item->user ? $item->user->name : $item->guest_name }}</div>
+                                        @if($item->is_guest)
+                                            <span class="text-xs text-yellow-600">(Tamu)</span>
+                                        @endif
+                                    </td>
                                     <td class="px-4 py-3">{{ $item->book->title }}</td>
                                     <td class="px-4 py-3"><x-status-badge :status="$item->status" /></td>
                                     <td class="px-4 py-3 font-mono text-xs">{{ $item->borrow_code ?? '—' }}</td>
@@ -255,14 +263,21 @@
             window.toggleGuest = function(isGuest) {
                 const guestBox = document.getElementById('guest-fields');
                 const existingWrapper = document.getElementById('existing-user-wrapper');
+                const existingSelect = existingWrapper.querySelector('select');
+                
                 if (isGuest) {
                     guestBox.classList.remove('hidden');
                     existingWrapper.classList.add('opacity-50');
-                    existingWrapper.querySelector('select').disabled = true;
+                    existingSelect.disabled = true;
+                    existingSelect.value = ''; // Clear value when disabled
+                    // Make guest fields required
+                    document.querySelector('input[name="guest_name"]').required = true;
                 } else {
                     guestBox.classList.add('hidden');
                     existingWrapper.classList.remove('opacity-50');
-                    existingWrapper.querySelector('select').disabled = false;
+                    existingSelect.disabled = false;
+                    // Make guest fields not required
+                    document.querySelector('input[name="guest_name"]').required = false;
                 }
             };
 

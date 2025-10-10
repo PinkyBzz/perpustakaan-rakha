@@ -46,6 +46,11 @@ class Book extends Model
         return $this->hasMany(BookRating::class);
     }
 
+    public function reservations()
+    {
+        return $this->hasMany(BookReservation::class);
+    }
+
     public function averageRating(): float
     {
         return round((float) $this->ratings()->avg('rating'), 1);

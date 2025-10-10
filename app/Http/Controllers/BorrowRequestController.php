@@ -10,6 +10,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Http\Controllers\BookReservationController;
 
 class BorrowRequestController extends Controller
 {
@@ -89,6 +90,11 @@ class BorrowRequestController extends Controller
             'guest_name.required_without' => 'Nama tamu wajib jika tidak memilih user terdaftar.',
         ]);
 
+        // Convert empty string to null for existing_user_id
+        if (isset($data['existing_user_id']) && $data['existing_user_id'] === '') {
+            $data['existing_user_id'] = null;
+        }
+
         $book = Book::findOrFail($data['book_id']);
         if ($book->stock <= 0) {
             return back()->with('error', 'Stok buku habis.');
@@ -110,12 +116,14 @@ class BorrowRequestController extends Controller
 
         return DB::transaction(function () use ($data, $book, $request) {
             // Reduce stock immediately when staff creates (auto-approved scenario)
-            $book = $book->lockForUpdate();
+            $book = Book::where('id', $book->id)->lockForUpdate()->first();
             if ($book->stock <= 0) {
                 return back()->with('error', 'Stok buku habis.');
             }
             $book->decrement('stock');
 
+            $isGuest = empty($data['existing_user_id']);
+            
             $borrow = BorrowRequest::create([
                 'user_id' => $data['existing_user_id'] ?? null,
                 'book_id' => $book->id,
@@ -126,10 +134,10 @@ class BorrowRequestController extends Controller
                 'processed_by' => $request->user()->id,
                 'processed_at' => now(),
                 'processed_action' => 'approved',
-                'guest_name' => $data['existing_user_id'] ? null : ($data['guest_name'] ?? null),
-                'guest_contact' => $data['existing_user_id'] ? null : ($data['guest_contact'] ?? null),
-                'guest_identifier' => $data['existing_user_id'] ? null : ($data['guest_identifier'] ?? null),
-                'is_guest' => empty($data['existing_user_id']),
+                'guest_name' => $isGuest ? ($data['guest_name'] ?? null) : null,
+                'guest_contact' => $isGuest ? ($data['guest_contact'] ?? null) : null,
+                'guest_identifier' => $isGuest ? ($data['guest_identifier'] ?? null) : null,
+                'is_guest' => $isGuest,
             ]);
 
             return back()->with('success', 'Peminjaman berhasil dibuat ('.($borrow->is_guest ? 'Tamu' : 'User').'). Kode: '.$borrow->borrow_code);
@@ -201,7 +209,8 @@ class BorrowRequestController extends Controller
             'processed_action' => 'rejected',
         ]);
 
-        return back()->with('success', 'Permintaan peminjaman dari ' . $borrowRequest->user->name . ' untuk buku "' . $borrowRequest->book->title . '" telah ditolak.');
+        $userName = $borrowRequest->user ? $borrowRequest->user->name : $borrowRequest->guest_name;
+        return back()->with('success', 'Permintaan peminjaman dari ' . $userName . ' untuk buku "' . $borrowRequest->book->title . '" telah ditolak.');
     }
 
     public function requestReturn(BorrowRequest $borrowRequest): RedirectResponse
@@ -245,7 +254,11 @@ class BorrowRequestController extends Controller
                 'return_confirmed_at' => now(),
             ]);
 
-            return back()->with('success', 'Pengembalian buku "' . $book->title . '" oleh ' . $borrowRequest->user->name . ' telah dikonfirmasi. Stok sekarang: ' . $book->stock);
+            // Notify waiting users about book availability
+            BookReservationController::notifyWaitingUsers($book);
+
+            $userName = $borrowRequest->user ? $borrowRequest->user->name : $borrowRequest->guest_name;
+            return back()->with('success', 'Pengembalian buku "' . $book->title . '" oleh ' . $userName . ' telah dikonfirmasi. Stok sekarang: ' . $book->stock);
         });
     }
 

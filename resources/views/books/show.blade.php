@@ -75,33 +75,98 @@
                         </div>
 
                         @php($canBorrow = auth()->user()->role === \App\Models\User::ROLE_USER)
+                        @php($hasActiveReservation = $canBorrow ? \App\Models\BookReservation::where('user_id', auth()->id())->where('book_id', $book->id)->whereIn('status', ['waiting', 'notified'])->exists() : false)
+                        @php($userReservation = $canBorrow ? \App\Models\BookReservation::where('user_id', auth()->id())->where('book_id', $book->id)->whereIn('status', ['waiting', 'notified'])->first() : null)
+                        @php($queuePosition = $userReservation ? \App\Models\BookReservation::where('book_id', $book->id)->where('status', 'waiting')->where('created_at', '<', $userReservation->created_at)->count() + 1 : 0)
 
                         @if ($canBorrow)
-                            <form action="{{ route('borrow.store') }}" method="POST" class="flex items-center gap-3 flex-wrap">
-                                @csrf
-                                <input type="hidden" name="book_id" value="{{ $book->id }}">
-                                <div>
-                                    <x-input-label for="due_date" value="Tanggal pengembalian (opsional)" />
-                                    <x-text-input id="due_date" name="due_date" type="date" class="mt-1 block" />
-                                </div>
-                                <div class="mt-6">
-                                    @if ($book->stock > 0)
+                            @if ($book->stock > 0)
+                                <form action="{{ route('borrow.store') }}" method="POST" class="flex items-center gap-3 flex-wrap">
+                                    @csrf
+                                    <input type="hidden" name="book_id" value="{{ $book->id }}">
+                                    <div>
+                                        <x-input-label for="due_date" value="Tanggal pengembalian (opsional)" />
+                                        <x-text-input id="due_date" name="due_date" type="date" class="mt-1 block" />
+                                    </div>
+                                    <div class="mt-6">
                                         <button type="submit" class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                                             </svg>
                                             Pinjam Buku
                                         </button>
+                                    </div>
+                                </form>
+                            @else
+                                {{-- Stok habis - show reservation options --}}
+                                <div class="space-y-4">
+                                    @if ($hasActiveReservation)
+                                        @if ($userReservation->status === 'waiting')
+                                            <div class="p-4 bg-yellow-50 border-l-4 border-yellow-500 rounded-lg">
+                                                <div class="flex items-start gap-3">
+                                                    <svg class="w-6 h-6 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                    </svg>
+                                                    <div>
+                                                        <p class="font-semibold text-yellow-800">Anda dalam Antrian</p>
+                                                        <p class="text-sm text-yellow-700 mt-1">
+                                                            Posisi antrian Anda: <span class="font-bold text-lg">{{ $queuePosition }}</span>
+                                                        </p>
+                                                        <p class="text-xs text-yellow-600 mt-2">Anda akan mendapat notifikasi saat buku tersedia.</p>
+                                                    </div>
+                                                </div>
+                                                <form action="{{ route('reservations.cancel', $userReservation) }}" method="POST" class="mt-3">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" onclick="return confirm('Batalkan reservasi?')" class="text-sm text-yellow-700 hover:text-yellow-900 underline">
+                                                        Batalkan Antrian
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        @elseif ($userReservation->status === 'notified')
+                                            <div class="p-4 bg-green-50 border-l-4 border-green-500 rounded-lg">
+                                                <div class="flex items-start gap-3">
+                                                    <svg class="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                    </svg>
+                                                    <div>
+                                                        <p class="font-semibold text-green-800">Buku Tersedia untuk Anda!</p>
+                                                        <p class="text-sm text-green-700 mt-1">
+                                                            Stok buku sudah tersedia. Segera ajukan peminjaman sebelum 
+                                                            <span class="font-semibold">{{ \Carbon\Carbon::parse($userReservation->expires_at)->format('d M Y H:i') }}</span>
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @endif
                                     @else
-                                        <span class="inline-flex items-center gap-2 px-6 py-3 bg-gray-200 text-gray-500 font-semibold rounded-xl">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                        <div class="flex items-center gap-3">
+                                            <span class="inline-flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-500 font-semibold rounded-xl">
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                                </svg>
+                                                Stok Habis
+                                            </span>
+                                            <form action="{{ route('reservations.store') }}" method="POST">
+                                                @csrf
+                                                <input type="hidden" name="book_id" value="{{ $book->id }}">
+                                                <button type="submit" class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all">
+                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                    </svg>
+                                                    Menunggu Antrian
+                                                </button>
+                                            </form>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-2">
+                                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                             </svg>
-                                            Stok Habis
-                                        </span>
+                                            Dengan menunggu antrian, Anda akan mendapat notifikasi saat buku tersedia untuk dipinjam.
+                                        </p>
                                     @endif
                                 </div>
-                            </form>
+                            @endif
                         @else
                             <div class="inline-flex items-center px-4 py-2 bg-yellow-50 border border-yellow-200 text-yellow-700 text-sm rounded">
                                 Hanya akun siswa yang dapat meminjam buku.
